@@ -2,7 +2,7 @@
 
 Personal portfolio of **Nathamayil Natesh**, Software Engineer based in Chennai, India
 
-**Live:** https://nathamayil.github.io/nathamayil-portfolio/
+**Live:** https://nathamayil-n.netlify.app/
 
 ## Stack
 
