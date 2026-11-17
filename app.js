@@ -1,0 +1,1187 @@
+(function () {
+  var c = window.CONTENT;
+  var root = document.documentElement;
+  var $ = function (id) { return document.getElementById(id); };
+  var reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
+  // Element helper. Uses textContent so content is never parsed as HTML.
+  function el(tag, opts, children) {
+    var node = document.createElement(tag);
+    opts = opts || {};
+    if (opts.cls) node.className = opts.cls;
+    if (opts.text != null) node.textContent = opts.text;
+    if (opts.href) {
+      node.href = opts.href;
+      if (/^https?:/.test(opts.href)) { node.target = "_blank"; node.rel = "noopener noreferrer"; }
+    }
+    (children || []).forEach(function (ch) { if (ch) node.appendChild(ch); });
+    return node;
+  }
+
+  // Fixed inline SVG icons (no external requests), safe to inject.
+  var ICONS = {
+    linkedin: '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.61 0 4.27 2.38 4.27 5.47v6.27ZM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45Z"/></svg>',
+    github: '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.17c-3.34.73-4.04-1.42-4.04-1.42-.55-1.38-1.33-1.75-1.33-1.75-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.31-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.87.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg>',
+    mail: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 6 8.5 7 8.5-7"/></svg>',
+    link: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>',
+  };
+  function iconFor(label) {
+    var k = label.toLowerCase();
+    if (k.indexOf("github") > -1) return ICONS.github;
+    if (k.indexOf("linkedin") > -1) return ICONS.linkedin;
+    if (k.indexOf("mail") > -1) return ICONS.mail;
+    return ICONS.link;
+  }
+  function iconLink(label, href) {
+    var a = el("a", { cls: "icon-btn", href: href });
+    a.title = label;
+    a.setAttribute("aria-label", label);
+    a.innerHTML = iconFor(label);
+    return a;
+  }
+
+  // ---------- Toast + clipboard ----------
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+  function copy(text, msg) {
+    function fallback() {
+      var ta = el("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); toast(msg); } catch (e) { toast("Copy failed. " + text); }
+      ta.remove();
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { toast(msg); }, fallback);
+    } else fallback();
+  }
+
+  var phone = matchMedia("(max-width: 600px)");
+
+  // ---------- Discreet mode ----------
+  // Job-search details only for people who arrive through a personal link (?ref=...); the site remembers
+  // them for 90 days. Everyone else (colleagues, search engines, link previews, the GitHub profile link)
+  // sees a neutral page. Preview it yourself with any ?ref=, e.g. ?ref=preview.
+  var openMode = (function () {
+    var ref = (new URLSearchParams(location.search).get("ref") || "").toLowerCase();
+    var viaLink = !!ref && ref !== "github";
+    try {
+      if (viaLink) localStorage.setItem("open-mode", String(Date.now()));
+      return Date.now() - (+localStorage.getItem("open-mode") || 0) < 90 * 864e5;
+    } catch (e) { return viaLink; }
+  })();
+  root.classList.toggle("open-mode", openMode);
+
+  // ---------- Hero ----------
+  var linkedin = c.links.filter(function (l) { return /linkedin/i.test(l.label); })[0];
+  $("brand").textContent = c.name;
+  $("hero-availability").textContent = openMode ? c.availability : c.status;
+  var nameEl = $("hero-name");
+  nameEl.setAttribute("aria-label", c.name);
+  // Letters animate one by one, but each word is kept whole so the name only ever wraps between words.
+  var charIdx = 0;
+  c.name.split(" ").forEach(function (word, wi) {
+    if (wi) nameEl.appendChild(document.createTextNode(" "));
+    var w = el("span", { cls: "word" });
+    w.setAttribute("aria-hidden", "true");
+    word.split("").forEach(function (ch) {
+      var span = el("span", { cls: "char", text: ch });
+      span.style.setProperty("--i", charIdx++);
+      w.appendChild(span);
+    });
+    charIdx++;
+    nameEl.appendChild(w);
+  });
+  $("hero-eyebrow").textContent = c.role;
+  $("hero-tagline").textContent = c.tagline;
+  // CV buttons only appear when a CV file is configured in content.js.
+  if (c.cv) {
+    ["hero-cv", "mobile-cv"].forEach(function (id) { $(id).href = c.cv; $(id).hidden = false; });
+  }
+
+  var avatar = $("hero-avatar");
+  var initials = c.name.split(/\s+/).map(function (p) { return p[0]; }).join("").slice(0, 2).toUpperCase();
+  avatar.textContent = initials;
+  if (c.photo) {
+    var img = new Image();
+    img.alt = c.name;
+    img.decoding = "async";
+    img.onload = function () { avatar.textContent = ""; avatar.appendChild(img); };
+    img.src = c.photo;
+  }
+
+  var socials = $("hero-socials");
+  socials.appendChild(iconLink("Email", "mailto:" + c.email));
+  c.links.forEach(function (l) { socials.appendChild(iconLink(l.label, l.url)); });
+
+  // Live local time, so visitors know when a reply is likely.
+  var clock = $("clock");
+  var fmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: c.timeZone, timeZoneName: "short" });
+  function tick() {
+    var t = c.location.split(",")[0] + " · " + fmt.format(new Date());
+    clock.textContent = t;
+    var local = $("contact-local");
+    if (local) local.textContent = "Local time in " + t;
+    var gt = $("glance-time");
+    if (gt) gt.textContent = "Local time " + fmt.format(new Date());
+  }
+  tick();
+  setInterval(tick, 30000);
+
+
+
+  // ---------- About ----------
+  // Lede: split into words so they can light up as the reader scrolls. **x** marks a highlight.
+  var lede = $("about-lede"), ledeWords = [], litCount = -1;
+  function renderLede(text) {
+    text.split("**").forEach(function (part, i) {
+      var target = lede;
+      if (i % 2) { target = el("strong", { cls: "hl" }); lede.appendChild(target); }
+      part.split(/(\s+)/).forEach(function (w) {
+        if (!w) return;
+        if (/^\s+$/.test(w)) target.appendChild(document.createTextNode(w));
+        else target.appendChild(el("span", { cls: "w", text: w }));
+      });
+    });
+    ledeWords = Array.prototype.slice.call(lede.querySelectorAll(".w"));
+    lightLede();
+  }
+  function lightLede() {
+    var n = ledeWords.length, lit = n;
+    if (!reduceMotion) {
+      var r = lede.getBoundingClientRect(), vh = innerHeight;
+      // Starts lighting when the lede enters the lower part of the screen, done by the time it reaches the upper third.
+      var p = (vh * 0.9 - r.top) / (vh * 0.5 + r.height * 0.3);
+      lit = Math.round(Math.max(0, Math.min(1, p)) * n);
+    }
+    if (lit === litCount) return;
+    ledeWords.forEach(function (w, i) { w.classList.toggle("lit", i < lit); });
+    lede.querySelectorAll(".hl").forEach(function (h) { h.classList.toggle("lit", !h.querySelector(".w:not(.lit)")); });
+    litCount = lit;
+  }
+  renderLede(c.about.lede);
+  if (!reduceMotion && "IntersectionObserver" in window) {
+    var ledeTicking = false;
+    function onLedeScroll() { if (!ledeTicking) { ledeTicking = true; requestAnimationFrame(function () { lightLede(); ledeTicking = false; }); } }
+    new IntersectionObserver(function (entries) {
+      lightLede();
+      if (entries[0].isIntersecting) addEventListener("scroll", onLedeScroll, { passive: true });
+      else removeEventListener("scroll", onLedeScroll);
+    }).observe(lede);
+  }
+
+
+  // At a glance
+  var FACT_ICONS = {
+    pin: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+    shield: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3 5 6v5.5c0 4.4 3 8.2 7 9.5 4-1.3 7-5.1 7-9.5V6l-7-3Z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>',
+    chat: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 5.5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3.5V15.5H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"/><path d="M19 9h1a2 2 0 0 1 2 2v5.5a2 2 0 0 1-2 2h-.5V21L16 18.5h-3"/></svg>',
+    cap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m2.5 9 9.5-5 9.5 5-9.5 5-9.5-5Z"/><path d="M6.5 11.2V16c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3v-4.8M21.5 9v5.5"/></svg>',
+  };
+  var CEFR = ["A1", "A2", "B1", "B2", "C1", "C2"];
+  c.facts.forEach(function (f) {
+    var icon = el("span", { cls: "glance-icon" });
+    icon.innerHTML = FACT_ICONS[f.icon] || "";
+    var dd = el("dd");
+    if (f.v) dd.appendChild(el("span", { cls: "glance-v", text: f.v }));
+    if (f.sub) dd.appendChild(el("span", { cls: "glance-sub", text: f.sub }));
+    if (f.clock) dd.appendChild(el("span", { cls: "glance-sub", text: "" })).id = "glance-time";
+    if (f.badge && openMode) dd.appendChild(el("span", { cls: "glance-badge", text: f.badge }));
+    if (f.langs) {
+      dd.appendChild(el("ul", { cls: "langs" }, f.langs.map(function (l) {
+        var kids = [el("span", { cls: "lang-name", text: l.name }), el("span", { cls: "lang-level", text: l.level })];
+        if (l.cefr) {
+          var ladder = el("span", { cls: "cefr" });
+          ladder.setAttribute("aria-hidden", "true");
+          CEFR.forEach(function (lv, i) { ladder.appendChild(el("i", { cls: i < l.cefr ? "on" : i === l.cefr ? "next" : "", text: lv })); });
+          kids.push(ladder);
+        }
+        return el("li", { cls: l.cefr ? "has-cefr" : "" }, kids);
+      })));
+    }
+    $("facts").appendChild(el("div", { cls: "glance-row" }, [icon, el("div", { cls: "glance-body" }, [el("dt", { text: f.k }), dd])]));
+  });
+  tick();
+
+  // Each principle gets a small illustration of what it means in practice (decorative, static; animates on hover).
+  var PRINCIPLE_VIZ = [
+    // Say only what I can defend: every line on the card has evidence behind it.
+    '<svg viewBox="0 0 240 110" aria-hidden="true">' +
+      '<rect class="pv-card" x="28" y="10" width="184" height="92" rx="10"/>' +
+      '<text class="pv-title" x="42" y="31">Claim</text>' +
+      '<g class="pv-rows"><rect x="42" y="40" width="96" height="9" rx="4.5"/><rect x="42" y="56" width="74" height="9" rx="4.5"/><rect x="42" y="72" width="86" height="9" rx="4.5"/></g>' +
+      '<path class="pv-tick pv-check" d="m150 44.5 3.5 3.5 6-6.5M150 60.5l3.5 3.5 6-6.5M150 76.5l3.5 3.5 6-6.5"/>' +
+      '<text class="pv-label" x="198" y="92" text-anchor="end">backed by work</text>' +
+    '</svg>',
+    // Security is part of the build: two changes reach the gate, one passes, one is stopped.
+    '<svg viewBox="0 0 240 110" aria-hidden="true">' +
+      '<path class="pv-track" d="M18 38H222M18 74H120"/>' +
+      '<path class="pv-flow" d="M18 38H222"/>' +
+      '<circle class="pv-node" cx="22" cy="38" r="5"/><circle class="pv-node" cx="22" cy="74" r="5"/>' +
+      '<g class="pv-gate" transform="translate(108 38)"><path d="M12 -20 0 -15v10c0 9 5 16 12 19 7-3 12-10 12-19v-10L12 -20Z"/><path class="pv-tick" d="m6.5 -3.5 4 4 7-7.5"/></g>' +
+      '<rect class="pv-gate-col" x="114" y="60" width="12" height="28" rx="4"/>' +
+      '<path class="pv-stop" d="m113 69 14 10M127 69l-14 10"/>' +
+      '<circle class="pv-node pv-ok" cx="218" cy="38" r="5"/>' +
+      '<text class="pv-label" x="18" y="100">build</text><text class="pv-label" x="120" y="100" text-anchor="middle">scan</text><text class="pv-label" x="222" y="100" text-anchor="end">ship</text>' +
+    '</svg>',
+    // Tools should save people time: the same job, done by hand and with an agent.
+    '<svg viewBox="0 0 240 110" aria-hidden="true">' +
+      '<text class="pv-label" x="18" y="28">by hand</text>' +
+      '<rect class="pv-budget-bg" x="18" y="34" width="204" height="9" rx="4.5"/>' +
+      '<rect x="18" y="34" width="204" height="9" rx="4.5" fill="#e5484d" opacity="0.55"/>' +
+      '<text class="pv-label" x="18" y="70">with an agent</text>' +
+      '<rect class="pv-budget-bg" x="18" y="76" width="204" height="9" rx="4.5"/>' +
+      '<rect class="pv-budget" x="18" y="76" width="78" height="9" rx="4.5"/>' +
+      '<text class="pv-label" x="222" y="100" text-anchor="end">time spent</text>' +
+    '</svg>',
+    // Design is part of engineering: a wireframe being laid out.
+    '<svg viewBox="0 0 240 110" aria-hidden="true">' +
+      '<rect class="pv-card" x="28" y="10" width="184" height="92" rx="10"/>' +
+      '<rect class="pv-btn" x="42" y="22" width="64" height="12" rx="6"/>' +
+      '<g class="pv-rows"><rect x="42" y="44" width="70" height="46" rx="6"/><rect x="122" y="44" width="76" height="12" rx="6"/><rect x="122" y="62" width="58" height="12" rx="6"/><rect x="122" y="80" width="66" height="10" rx="5"/></g>' +
+      '<path class="pv-tick" d="M176 30l9-7 5 5-9 7z"/>' +
+    '</svg>',
+  ];
+  c.principles.forEach(function (p, i) {
+    var viz = el("div", { cls: "principle-viz" });
+    viz.innerHTML = PRINCIPLE_VIZ[i % PRINCIPLE_VIZ.length];
+    $("principles").appendChild(el("article", { cls: "principle spot" }, [
+      viz,
+      el("span", { cls: "principle-num", text: "0" + (i + 1) }),
+      el("h4", { text: p.title }),
+      el("p", { text: p.desc }),
+    ]));
+  });
+
+  // ---------- Selected work: editorial case-file showcase ----------
+  // One DOM node per case (index button + panel). Desktop: index left, open case right.
+  // Phones: an accordion. Buttons follow the disclosure pattern (aria-expanded + aria-controls).
+  var showcase = $("showcase"), caseItems = [];
+  var wideScreen = matchMedia("(min-width: 861px)");
+  c.caseStudies.forEach(function (cs, i) {
+    var num = String(i + 1).padStart(2, "0"), pid = "case-panel-" + i;
+    var tab = el("button", { cls: "case-tab" }, [
+      el("span", { cls: "case-tab-num", text: num }),
+      el("span", { cls: "case-tab-text" }, [el("strong", { text: cs.title }), el("span", { text: cs.context })]),
+      el("span", { cls: "case-tab-arrow", text: "→" }),
+      el("span", { cls: "case-tab-progress" }),
+    ]);
+    tab.type = "button";
+    tab.id = "case-tab-" + i;
+    tab.style.setProperty("--row", i + 1);
+    tab.setAttribute("aria-controls", pid);
+
+    function step(kind, label, text) {
+      return el("li", { cls: "flow-step flow-" + kind }, [
+        el("span", { cls: "flow-dot" }), el("p", { cls: "flow-label", text: label }), el("p", { cls: "flow-text", text: text }),
+      ]);
+    }
+    // Metrics render only when real ones are added in content.js.
+    var metrics = cs.metrics && cs.metrics.length
+      ? el("ul", { cls: "case-metrics" }, cs.metrics.map(function (m) { return el("li", { text: m }); }))
+      : null;
+    var mark = el("span", { cls: "case-watermark", text: num });
+    mark.setAttribute("aria-hidden", "true");
+    var panel = el("div", { cls: "case-panel" }, [
+      mark,
+      el("p", { cls: "case-kicker", text: "Case " + num + " · " + cs.context }),
+      el("h3", { cls: "case-title", text: cs.title }),
+      cs.myRole ? el("p", { cls: "case-role" }, [el("span", { text: "My role" }), el("strong", { text: cs.myRole })]) : null,
+      el("ol", { cls: "case-flow" }, [
+        step("challenge", "Challenge", cs.challenge),
+        step("approach", "Approach", cs.approach),
+        step("result", "Result", cs.result),
+      ]),
+      metrics,
+      el("ul", { cls: "chips small case-stack" }, cs.stack.map(function (t) { return el("li", { text: t }); })),
+    ]);
+    // Footer: position in the set, and a button to the next case (wraps round to the first).
+    var nextI = (i + 1) % c.caseStudies.length, nextBtn = el("button", { cls: "case-next-btn" }, [
+      el("span", { cls: "case-next-k", text: nextI === 0 ? "Back to the first" : "Next case" }),
+      el("span", { cls: "case-next-t", text: c.caseStudies[nextI].title }),
+      el("span", { cls: "case-next-arrow", text: nextI === 0 ? "↺" : "→" }),
+    ]);
+    nextBtn.type = "button";
+    nextBtn.addEventListener("click", function () { goCase(nextI); });
+    panel.appendChild(el("div", { cls: "case-next" }, [el("span", { cls: "case-count", text: num + " / " + String(c.caseStudies.length).padStart(2, "0") }), nextBtn]));
+    panel.id = pid;
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-labelledby", tab.id);
+    showcase.appendChild(el("div", { cls: "case-item" }, [tab, panel]));
+    caseItems.push({ tab: tab, panel: panel });
+  });
+
+  showcase.style.setProperty("--n", c.caseStudies.length);
+  var activeCase = -1;
+  var caseAutoplay = !reduceMotion && wideScreen.matches;
+  function openCase(i, fromUser) {
+    if (fromUser && caseAutoplay) { caseAutoplay = false; showcase.classList.remove("autoplay"); }
+    caseItems.forEach(function (it, k) {
+      var on = k === i;
+      it.tab.classList.toggle("active", on);
+      it.tab.setAttribute("aria-expanded", String(on));
+      it.panel.classList.toggle("active", on);
+      if (on) it.panel.removeAttribute("inert"); else it.panel.setAttribute("inert", "");
+    });
+    activeCase = i;
+  }
+  // From a case's "Next case" button: open it, keep focus on its tab, and on phones bring it into view.
+  function goCase(i) {
+    openCase(i, true);
+    var t = caseItems[i].tab;
+    t.focus({ preventScroll: true });
+    if (!wideScreen.matches) t.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+  }
+  caseItems.forEach(function (it, i) {
+    it.tab.addEventListener("click", function () {
+      // Phones: tapping the open case closes it; desktop always keeps one case open.
+      if (!wideScreen.matches && activeCase === i) { openCase(-1, true); return; }
+      openCase(i, true);
+      if (!wideScreen.matches) it.tab.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+    });
+    // Autoplay: the gold progress line's animation hands over to the next case.
+    it.tab.querySelector(".case-tab-progress").addEventListener("animationend", function () {
+      if (caseAutoplay && activeCase === i) openCase((i + 1) % caseItems.length);
+    });
+  });
+  openCase(0);
+  if (caseAutoplay && "IntersectionObserver" in window) {
+    showcase.classList.add("autoplay");
+    // Only advance while the section is on screen (hover and focus pause it in CSS).
+    new IntersectionObserver(function (entries) {
+      showcase.classList.toggle("in-view", entries[0].isIntersecting);
+    }, { threshold: 0.35 }).observe(showcase);
+  }
+
+  // Internal tooling, sessions and competitions as event passes (fixed inline icons, decorative).
+  var PASS_ICONS = {
+    terminal: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m7 10 3 2.5L7 15M13 15h4"/></svg>',
+    mic: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>',
+    layers: '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
+  };
+  c.workshops.forEach(function (w, i) {
+    var icon = el("span", { cls: "pass-icon" });
+    icon.innerHTML = PASS_ICONS[w.icon] || PASS_ICONS.terminal;
+    var code = el("span", { cls: "pass-code" });
+    code.setAttribute("aria-hidden", "true");
+    $("workshop-list").appendChild(el("li", { cls: "pass" }, [
+      el("div", { cls: "pass-stub" }, [
+        icon,
+        el("span", { cls: "pass-type", text: w.type }),
+        el("span", { cls: "pass-no", text: "No. " + String(i + 1).padStart(2, "0") }),
+        code,
+      ]),
+      el("div", { cls: "pass-body" }, [
+        el("p", { cls: "pass-where", text: w.where }),
+        el("h4", { text: w.title }),
+        el("p", { cls: "pass-desc", text: w.desc }),
+        el("ul", { cls: "chips small" }, (w.tags || []).map(function (t) { return el("li", { text: t }); })),
+      ]),
+    ]));
+  });
+
+  // ---------- Skills ----------
+  // Icons for the skills (also used on the hero card).
+  var TILE_ICONS = {
+    java: '<path d="M8 4c-2 0-3 1-3 3v2c0 1-1 3-2 3 1 0 2 2 2 3v2c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2c0 1 1 3 2 3-1 0-2 2-2 3v2c0 2-1 3-3 3"/>',
+    agents: '<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4.5V8M9 13h.01M15 13h.01M9.5 16.5h5"/><circle cx="12" cy="3.5" r="1"/>',
+    rag: '<circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5M8 10.5h5M10.5 8v5"/>',
+    sec: '<path d="M12 2.5 4 6v5.5c0 5 3.4 9.3 8 10.5 4.6-1.2 8-5.5 8-10.5V6l-8-3.5Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+    cloud: '<path d="M7 18h10.5a4 4 0 0 0 .5-8 6 6 0 0 0-11.6 1.5A3.3 3.3 0 0 0 7 18Z"/>',
+    quality: '<rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="m8 9 1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H17M14.5 15.5H17"/>',
+    data: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+    frontend: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9.5h18M7 7h.01M10 7h.01"/>',
+    certs: '<circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.5-1.5 8 5-2.5 5 2.5-1.5-8"/>',
+  };
+  function tileIcon(id) {
+    var d = el("div", { cls: "tile-icon" });
+    d.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (TILE_ICONS[id] || TILE_ICONS.certs) + "</svg>";
+    return d;
+  }
+  // ---------- Hero card: the current role in plain English ----------
+  (function () {
+    var job = c.experience[0], parts = job.role.split(", ");
+    var card = $("hero-card");
+    var mono = el("span", { cls: "hc-mono", text: job.company.charAt(0) });
+    mono.setAttribute("aria-hidden", "true");
+    card.appendChild(el("div", { cls: "hc-head" }, [
+      mono,
+      el("div", { cls: "hc-who" }, [
+        el("p", { cls: "hc-kicker" }, [el("i"), document.createTextNode("Currently at")]),
+        el("p", { cls: "hc-company", text: job.company }),
+      ]),
+      el("span", { cls: "hc-since", text: /\d{4}/.test(job.period) ? "Since " + job.period.split(/\s*[–-]\s*/)[0].trim() : c.years + " years" }),
+    ]));
+    card.appendChild(el("div", { cls: "hc-role" }, [
+      el("p", { cls: "hc-title", text: parts[0] }),
+      el("p", { cls: "hc-sub", text: parts.slice(1).join(", ") }),
+    ]));
+    card.appendChild(el("p", { cls: "hc-label", text: "What I do" }));
+    card.appendChild(el("ul", { cls: "hc-focus" }, ["java", "agents", "sec"].map(function (id) {
+      var cap = c.capabilities.filter(function (x) { return x.id === id; })[0];
+      return el("li", {}, [
+        tileIcon(id),
+        el("div", {}, [el("strong", { text: cap.name }), el("span", { text: cap.tools.split(" · ").slice(0, 3).join(" · ") })]),
+      ]);
+    })));
+    var certs = [], issuers = [];
+    c.certifications.forEach(function (g) { g.items.forEach(function (it) { certs.push(it); if (issuers.indexOf(it.issuer) < 0) issuers.push(it.issuer); }); });
+    var foot = el("a", { cls: "hc-foot", href: "#certs" }, [
+      el("span", { cls: "hc-certs" }, [el("strong", { text: c.years }), document.createTextNode(" years in software")]),
+      el("span", { cls: "hc-dot" }),
+      el("span", { cls: "hc-certs" }, [el("strong", { text: String(certs.length) }), document.createTextNode(" certifications")]),
+      el("span", { cls: "hc-arrow", text: "→" }),
+    ]);
+    foot.setAttribute("aria-label", c.years + " years in software, " + certs.length + " certifications from " + issuers.join(", ") + ". See all");
+    card.appendChild(foot);
+    if (openMode && c.heroOpen) card.appendChild(el("p", { cls: "hc-open" }, [el("i"), document.createTextNode(c.heroOpen)]));
+  })();
+
+  function sinceYear(roleKeys) {
+    var ys = c.roles.filter(function (r) { return r.year && roleKeys.indexOf(r.key) > -1; }).map(function (r) { return r.year; });
+    return ys.length ? Math.min.apply(null, ys) : null;
+  }
+  // A calm two-column list: icon, name, since when, one sentence, tools.
+  c.capabilities.forEach(function (cap) {
+    var y = sinceYear(cap.roles);
+    $("skills-list").appendChild(el("article", { cls: "skill" }, [
+      tileIcon(cap.id),
+      el("h3", { text: cap.name }),
+      el("span", { cls: "skill-since", text: y ? "since " + y : "" }),
+      el("p", { text: cap.evidence }),
+      el("ul", { cls: "skill-tools" }, cap.tools.split(" · ").map(function (t) { return el("li", { text: t }); })),
+    ]));
+  });
+  var allCerts = [];
+  c.certifications.forEach(function (g) { allCerts = allCerts.concat(g.items); });
+
+  // Honeycomb: rows alternate N and N-1 badges, each badge spanning two grid columns,
+  // odd rows shifted by one column so the hexagons tessellate.
+  var hive = $("hive"), caption = $("hive-caption"), badges = [];
+  var summary = allCerts.length + " certifications · " + c.certifications.map(function (g) { return g.items.length + " " + g.group; }).join(" · ");
+  caption.textContent = summary;
+  c.certifications.forEach(function (g, gi) {
+    var sw = el("span", { cls: "legend-hex g" + gi });
+    $("cert-legend").appendChild(el("li", {}, [sw, el("span", { text: g.group }), el("b", { text: String(g.items.length) })]));
+    g.items.forEach(function (cert) {
+      var full = cert.issuer + " · " + cert.name + (cert.year ? " · " + cert.year : "");
+      var hex = el("li", { cls: "hex g" + gi }, [
+        el("div", { cls: "hex-shape" }, [
+          el("span", { cls: "hex-issuer", text: cert.issuer }),
+          el("span", { cls: "hex-name", text: cert.short || cert.name }),
+          el("span", { cls: "hex-tier", text: cert.tier || "" }),
+        ]),
+      ]);
+      hex.setAttribute("aria-label", full);
+      hex.addEventListener("mouseenter", function () { caption.textContent = full + " · " + g.group; caption.classList.add("on"); });
+      hex.addEventListener("mouseleave", function () { caption.textContent = summary; caption.classList.remove("on"); });
+      hive.appendChild(hex);
+      badges.push(hex);
+    });
+  });
+  function layoutHive() {
+    // Up to 6 per row on desktop, but never fewer than needed for a balanced N / N-1 pair (7 badges -> 4 + 3).
+    var perRow = matchMedia("(min-width: 1021px)").matches ? Math.min(6, Math.ceil((badges.length + 1) / 2))
+      : matchMedia("(min-width: 601px)").matches ? 4 : 2;
+    hive.style.setProperty("--cols", perRow * 2);
+    var row = 0, inRow = 0;
+    badges.forEach(function (hex) {
+      var cap = row % 2 ? perRow - 1 : perRow;
+      if (inRow >= cap) { row++; inRow = 0; cap = row % 2 ? perRow - 1 : perRow; }
+      hex.style.gridRow = String(row + 1);
+      hex.style.gridColumn = (inRow * 2 + 1 + (row % 2)) + " / span 2";
+      hex.classList.toggle("stacked", row > 0);
+      inRow++;
+    });
+  }
+  layoutHive();
+  // Course completions: shown as learning, separate from exam-based certifications.
+  if (c.learning && c.learning.length) {
+    c.learning.forEach(function (l) {
+      $("learning-list").appendChild(el("li", {}, [
+        el("span", { cls: "learning-issuer", text: l.issuer }),
+        el("span", { text: l.name + (l.year ? " · " + l.year : "") }),
+      ]));
+    });
+    $("learning").hidden = false;
+  }
+  ["(min-width: 1021px)", "(min-width: 601px)"].forEach(function (q) { matchMedia(q).addEventListener("change", layoutHive); });
+  // Publications: shown only when content.js lists some.
+  if (c.publications && c.publications.length) {
+    c.publications.forEach(function (p) {
+      $("publications-list").appendChild(el("li", {}, [
+        el("span", { cls: "learning-issuer", text: "Paper" }),
+        el("span", { text: p.name + (p.note ? " · " + p.note : "") }),
+      ]));
+    });
+    $("publications").hidden = false;
+  }
+
+  // ---------- First 90 days ----------
+  var plan = c.first90;
+  $("plan").hidden = !plan || !openMode;
+  // Number the visible sections 01, 02, ... so a hidden section never leaves a gap.
+  document.querySelectorAll(".section:not([hidden]) .label .idx").forEach(function (idx, i) { idx.textContent = (i < 9 ? "0" : "") + (i + 1); });
+  // Each section label carries a small button that copies a direct link to that section (clean URL, no ?ref).
+  document.querySelectorAll(".section .label").forEach(function (lbl) {
+    var sec = lbl.closest(".section"), name = lbl.textContent.replace(/^\s*\d+\s*/, "").trim();
+    var b = el("button", { cls: "label-link" });
+    b.type = "button";
+    b.setAttribute("aria-label", "Copy link to " + name);
+    b.title = "Copy link";
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>';
+    b.addEventListener("click", function () {
+      copy(location.origin + location.pathname + "#" + sec.id, "Link to " + name + " copied");
+      track("copy-link-" + sec.id, "Copied link: " + name);
+    });
+    lbl.appendChild(b);
+  });
+  if (plan && openMode) {
+    $("plan-title").textContent = plan.title;
+    $("plan-intro").textContent = plan.intro;
+    plan.phases.forEach(function (ph, i) {
+      $("plan-phases").appendChild(el("li", { cls: "phase" }, [
+        el("span", { cls: "phase-dot" }),
+        el("p", { cls: "phase-when", text: ph.when }),
+        el("span", { cls: "phase-num", text: "0" + (i + 1) }),
+        el("h3", { cls: "phase-title", text: ph.title }),
+        el("ul", { cls: "phase-points" }, ph.points.map(function (p) { return el("li", { text: p }); })),
+      ]));
+    });
+  }
+
+  // ---------- Experience: a proportional career bar, one role open at a time ----------
+  // Durations come from the periods in content.js (counted inclusively, as LinkedIn does).
+  var MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  function monthOf(text) {
+    if (/^present$/i.test(text.trim())) { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }
+    var parts = text.trim().split(/\s+/), m = MONTHS[(parts[0] || "").slice(0, 3).toLowerCase()];
+    return m === undefined || !/^\d{4}$/.test(parts[1] || "") ? null : new Date(+parts[1], m, 1);
+  }
+  function monthsBetween(a, b) { return (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth(); }
+  function durationText(m) {
+    var y = Math.floor(m / 12), mo = m % 12;
+    return [y ? y + (y > 1 ? " yrs" : " yr") : "", mo ? mo + " mo" : ""].filter(Boolean).join(" ");
+  }
+  var THEME_ICONS = [
+    '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2Z"/></svg>',
+    '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
+    '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v5.5c0 4.4 3 8.2 7 9.5 4-1.3 7-5.1 7-9.5V6l-7-3Z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>',
+    '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h4l2.5-6 5 12L17 12h4"/></svg>',
+  ];
+  var roles = c.experience.map(function (x, i) {
+    var current = /present/i.test(x.period);
+    var p = x.period.split(/\s*[–-]\s*/), from = monthOf(p[0]), to = current ? monthOf("Present") : monthOf(p[1] || p[0]);
+    // No start date given (e.g. "About 3 years · Present"): work it out from the years on the hero card.
+    if (!from) from = new Date(to.getFullYear(), to.getMonth() - ((parseInt(c.years, 10) || 1) * 12 - 1), 1);
+    return { x: x, i: i, from: from, to: to, months: monthsBetween(from, to) + 1, current: current };
+  });
+  var chrono = roles.slice().reverse();
+  var careerStart = chrono[0].from, careerMonths = monthsBetween(careerStart, chrono[chrono.length - 1].to) + 1;
+  var segs = [], panels = [];
+
+  function pointList(points, cls) {
+    return el("ul", { cls: cls }, points.map(function (p) { return el("li", { text: p }); }));
+  }
+  function openRole(i, focus) {
+    roles.forEach(function (r) {
+      var on = r.i === i;
+      segs[r.i].setAttribute("aria-selected", String(on));
+      segs[r.i].tabIndex = on ? 0 : -1;
+      panels[r.i].hidden = !on;
+    });
+    if (focus) segs[i].focus();
+  }
+
+  chrono.forEach(function (r, k) {
+    var x = r.x;
+    var seg = el("button", { cls: "career-seg" + (r.current ? " is-current" : "") }, [
+      el("span", { cls: "seg-track" }),
+      el("span", { cls: "seg-company", text: x.company.replace(/\s+(Technologies|Inc\.?|B\.V\.|Ltd\.?)$/i, "") }),
+      el("span", { cls: "seg-role", text: x.role.split(",")[0] }),
+      el("span", { cls: "seg-years", text: r.from.getFullYear() + " – " + (r.current ? "now" : r.to.getFullYear()) + " · " + durationText(r.months) }),
+      el("span", { cls: "seg-short", text: "’" + String(r.from.getFullYear()).slice(2) + "–" + (r.current ? "now" : "’" + String(r.to.getFullYear()).slice(2)) }),
+    ]);
+    seg.type = "button";
+    seg.id = "career-tab-" + r.i;
+    seg.style.flexGrow = r.months;
+    seg.setAttribute("role", "tab");
+    seg.setAttribute("aria-controls", "career-panel-" + r.i);
+    seg.addEventListener("click", function () { openRole(r.i); });
+    seg.addEventListener("keydown", function (e) {
+      var n = chrono.length, to = null;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") to = (k + 1) % n;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") to = (k - 1 + n) % n;
+      else if (e.key === "Home") to = 0;
+      else if (e.key === "End") to = n - 1;
+      if (to !== null) { e.preventDefault(); openRole(chrono[to].i, true); }
+    });
+    segs[r.i] = seg;
+    $("career-bar").appendChild(seg);
+  });
+
+  // Year ticks under the bar.
+  for (var yr = careerStart.getFullYear() + 1; yr <= new Date().getFullYear(); yr++) {
+    var at = monthsBetween(careerStart, new Date(yr, 0, 1)) / careerMonths * 100;
+    var tick = el("span", { cls: "axis-tick", text: String(yr) });
+    tick.style.left = at + "%";
+    $("career-axis").appendChild(tick);
+  }
+  $("career-axis").appendChild(el("span", { cls: "axis-now", text: "Now" }));
+
+  roles.forEach(function (r) {
+    var x = r.x;
+    var detail = x.themes
+      ? el("div", { cls: "xp-themes" }, x.themes.map(function (t, ti) {
+          var icon = el("span", { cls: "xp-theme-icon" });
+          icon.innerHTML = THEME_ICONS[ti % THEME_ICONS.length];
+          var list = pointList(t.points, "xp-list");
+          list.id = "xp-list-" + r.i + "-" + ti;
+          var toggle = el("button", { cls: "xp-theme-head" }, [icon, el("h4", { text: t.title }), el("span", { cls: "xp-chevron" })]);
+          toggle.type = "button";
+          toggle.setAttribute("aria-controls", list.id);
+          toggle.setAttribute("aria-expanded", "true");
+          var section = el("section", { cls: "xp-theme" }, [toggle, list]);
+          toggle.addEventListener("click", function () {
+            if (!phone.matches) return;
+            var open = toggle.getAttribute("aria-expanded") !== "true";
+            toggle.setAttribute("aria-expanded", String(open));
+            section.classList.toggle("collapsed", !open);
+          });
+          return section;
+        }))
+      : pointList(x.points, "xp-list xp-list-grid");
+    var panel = el("div", { cls: "xp-panel" }, [
+      el("div", { cls: "xp-top" }, [
+        el("div", {}, [
+          el("p", { cls: "xp-company", text: x.company }),
+          el("h3", { cls: "xp-role", text: x.role }),
+          x.meta ? el("p", { cls: "xp-meta", text: x.meta }) : null,
+        ]),
+        el("div", { cls: "xp-when" }, [
+          el("span", { cls: "xp-period", text: x.period }),
+          el("span", { cls: "xp-dur" + (r.current ? " is-current" : ""), text: durationText(r.months) + (r.current ? " · current" : "") }),
+        ]),
+      ]),
+      x.summary ? el("p", { cls: "xp-summary", text: x.summary }) : null,
+      detail,
+      x.stack ? el("ul", { cls: "chips small xp-stack" }, x.stack.map(function (s) { return el("li", { text: s }); })) : null,
+    ]);
+    panel.id = "career-panel-" + r.i;
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", "career-tab-" + r.i);
+    panel.tabIndex = 0;
+    panels[r.i] = panel;
+    $("career-panels").appendChild(panel);
+  });
+  openRole(0);
+
+  // Phones: a role's themes collapse to their headings (first one open); wider screens show everything.
+  function applyThemeMode() {
+    document.querySelectorAll(".xp-themes").forEach(function (box) {
+      box.querySelectorAll(".xp-theme").forEach(function (sec, i) {
+        var open = !phone.matches || i === 0;
+        sec.classList.toggle("collapsed", !open);
+        sec.querySelector(".xp-theme-head").setAttribute("aria-expanded", String(open));
+      });
+    });
+  }
+  applyThemeMode();
+  phone.addEventListener("change", applyThemeMode);
+
+  // Recommendations: hidden until at least one is added in content.js.
+  if (c.testimonials && c.testimonials.length) {
+    c.testimonials.forEach(function (q) {
+      $("quote-list").appendChild(el("figure", { cls: "quote" }, [
+        el("blockquote", { text: "“" + q.quote + "”" }),
+        el("figcaption", {}, [el("strong", { text: q.name }), el("span", { text: q.role })]),
+      ]));
+    });
+    $("quotes").hidden = false;
+  }
+
+  // ---------- Contact ----------
+  $("copy-email").addEventListener("click", function () { copy(c.email, "Email copied: " + c.email); });
+  $("contact-email").href = "mailto:" + c.email;
+  $("contact-email").textContent = c.email;
+  $("contact-availability").textContent = openMode ? c.availability : c.status;
+  c.links.forEach(function (l) {
+    var handle = l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+    var a = el("a", { cls: "channel", href: l.url }, [
+      el("span", { cls: "channel-icon" }), el("span", { cls: "channel-name", text: l.label }),
+      el("span", { cls: "channel-handle", text: handle }), el("span", { cls: "channel-arrow", text: "↗" }),
+    ]);
+    a.querySelector(".channel-icon").innerHTML = iconFor(l.label);
+    $("contact-channels").appendChild(el("li", {}, [a]));
+  });
+
+  // A hint under the message that changes with the chosen topic.
+  var TOPIC_HINTS = {
+    "Job opportunity": "Useful to include: the role, the company, location, and whether it’s hybrid or remote.",
+    "Speaking / workshop": "Useful to include: the event or team, the audience, a rough date and the topic.",
+    "Something else": "Anything goes. A couple of lines is plenty.",
+  };
+  var topicHint = $("cf-hint");
+  function updateHint() {
+    var t = (document.querySelector('#contact-form input[name="topic"]:checked') || {}).value;
+    topicHint.textContent = TOPIC_HINTS[t] || "";
+    topicHint.classList.remove("swap"); void topicHint.offsetWidth; topicHint.classList.add("swap");
+  }
+  document.querySelectorAll('#contact-form input[name="topic"]').forEach(function (r) { r.addEventListener("change", updateHint); });
+  updateHint();
+
+  // No backend: validate, then compose an email in the visitor's mail app.
+  $("contact-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target, err = $("form-error");
+    var bad = ["name", "email", "message"].filter(function (n) { return !f[n].value.trim(); });
+    if (!bad.length && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.value.trim())) bad.push("email");
+    ["name", "email", "message"].forEach(function (n) { f[n].setAttribute("aria-invalid", String(bad.indexOf(n) > -1)); });
+    var out = $("compose-out");
+    var LABEL = { name: "your name", email: "your email", message: "a message" };
+    if (bad.length) {
+      err.hidden = false;
+      if (bad.indexOf("email") > -1 && f.email.value.trim()) {
+        err.textContent = "That email address doesn’t look quite right.";
+      } else {
+        var missing = bad.map(function (n) { return LABEL[n]; });
+        err.textContent = "Please add " + (missing.length > 1 ? missing.slice(0, -1).join(", ") + " and " + missing[missing.length - 1] : missing[0]) + ".";
+      }
+      f[bad[0]].focus();
+      return;
+    }
+    err.hidden = true;
+    var name = f.name.value.trim();
+    var topic = (f.querySelector('input[name="topic"]:checked') || {}).value || "Hello";
+    out.textContent = "✓ Opening your email app with the message ready to send.";
+    track("contact-form-sent", "Contact form: " + topic);
+    f.classList.add("sent");
+    var subject = topic + " · from " + name;
+    var body = f.message.value.trim() + "\n\n— " + name + " (" + f.email.value.trim() + ")";
+    setTimeout(function () {
+      window.location.href = "mailto:" + c.email + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    }, reduceMotion ? 0 : 500);
+  });
+
+  // Footer: one line (everything else is already in the nav and the contact section).
+  $("footer-text").textContent = "© " + new Date().getFullYear() + " " + c.name;
+  // "Updated" comes from the page's Last-Modified date (set by GitHub Pages on each deploy).
+  var modified = new Date(document.lastModified);
+  if (!isNaN(modified)) {
+    $("footer-updated").textContent = "Updated " + modified.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+    $("footer-updated").dateTime = modified.toISOString().slice(0, 10);
+  }
+
+  // Rotating edge light on the hero card and the contact form (styles: .edge).
+  document.querySelectorAll(".hero-card, .contact-form").forEach(function (box) {
+    var edge = el("span", { cls: "edge" }, [el("i")]);
+    edge.setAttribute("aria-hidden", "true");
+    box.appendChild(edge);
+  });
+
+  // Phones: card rows become swipeable carousels (CSS scroll-snap); dots show the position.
+  [["principles", "How I work"], ["workshop-list", "Tooling, sessions and competitions"]].forEach(function (pair) {
+    var row = $(pair[0]);
+    if (!row) return;
+    row.setAttribute("aria-label", pair[1]);
+    var dots = el("div", { cls: "snap-dots" });
+    dots.setAttribute("aria-hidden", "true");
+    var items = Array.prototype.slice.call(row.children);
+    items.forEach(function () { dots.appendChild(el("i")); });
+    row.after(dots);
+    var ticking = false;
+    function update() {
+      ticking = false;
+      var left = row.scrollLeft, best = 0, dist = Infinity;
+      items.forEach(function (it, i) { var d = Math.abs(it.offsetLeft - row.offsetLeft - left); if (d < dist) { dist = d; best = i; } });
+      Array.prototype.forEach.call(dots.children, function (d, i) { d.classList.toggle("on", i === best); });
+    }
+    row.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+    update();
+  });
+
+  // ---------- Theme ----------
+  var THEMES = { light: "Light", dark: "Dark" };
+  function setTheme(t, announce) {
+    root.setAttribute("data-theme", t);
+    try { localStorage.setItem("theme", t); } catch (e) {}
+    if (announce) toast("Theme: " + THEMES[t]);
+  }
+  // Switching theme reveals the new one as a circle growing from the toggle (View Transitions, where supported).
+  function switchTheme(t, from, announce) {
+    if (t === root.getAttribute("data-theme")) return;
+    if (!document.startViewTransition || reduceMotion) { setTheme(t, announce); return; }
+    var r = from ? from.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
+    var x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.classList.add("theme-switching");
+    var vt = document.startViewTransition(function () { setTheme(t, announce); });
+    vt.ready.then(function () {
+      root.animate({ clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + radius + "px at " + x + "px " + y + "px)"] },
+        { duration: 560, easing: "cubic-bezier(.3,.7,.2,1)", pseudoElement: "::view-transition-new(root)" });
+    }).catch(function () {});
+    vt.finished.finally(function () { root.classList.remove("theme-switching"); });
+  }
+  $("theme-toggle").addEventListener("click", function () {
+    switchTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark", this);
+  });
+  // Follow OS changes until the visitor picks a theme themselves.
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+    var saved = null;
+    try { saved = localStorage.getItem("theme"); } catch (err) {}
+    if (!saved) root.setAttribute("data-theme", e.matches ? "dark" : "light");
+  });
+
+
+  // ---------- Mobile menu ----------
+  var menuBtn = $("menu-btn"), menu = $("mobile-menu");
+  function setMenu(open) {
+    menu.hidden = !open;
+    menuBtn.setAttribute("aria-expanded", String(open));
+    menuBtn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    document.body.classList.toggle("menu-open", open);
+  }
+  menuBtn.addEventListener("click", function () { setMenu(menu.hidden); });
+  menu.addEventListener("click", function (e) { if (e.target.closest("a")) setMenu(false); });
+  matchMedia("(min-width: 861px)").addEventListener("change", function (e) { if (e.matches) setMenu(false); });
+
+  // ---------- Scroll: progress bar + nav state ----------
+  var progress = $("progress"), nav = $("nav"), ticking = false;
+  var fab = $("top-fab"), fabRing = $("top-ring"), fabOn = false;
+  var lastY = scrollY, narrow = matchMedia("(max-width: 860px)");
+  function onScroll() {
+    var h = document.documentElement.scrollHeight - innerHeight, p = h > 0 ? scrollY / h : 0;
+    progress.style.transform = "scaleX(" + p + ")";
+    nav.classList.toggle("scrolled", scrollY > 8);
+    // Phones: the nav slides away while reading down and comes back on any scroll up.
+    var dy = scrollY - lastY;
+    if (Math.abs(dy) > 6 || scrollY < 120) {
+      nav.classList.toggle("nav-away", narrow.matches && dy > 0 && scrollY > 120 && menu.hidden);
+      lastY = scrollY;
+    }
+    // Back-to-top button: after the hero, but out of the way of the contact form and footer.
+    var on = scrollY > innerHeight * 0.9 && activeId !== "contact";
+    if (on !== fabOn) { fabOn = on; fab.classList.toggle("show", on); fab.tabIndex = on ? 0 : -1; }
+    if (on) fabRing.style.strokeDashoffset = (1 - p).toFixed(4);
+    ticking = false;
+  }
+  addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+
+  // Active-section indicator
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll("#primary-nav a"));
+  var indicator = $("nav-indicator"), navWhere = $("nav-where");
+  var activeId = null;
+  function setActive(id) {
+    activeId = id;
+    var link = null;
+    navLinks.forEach(function (a) {
+      var on = a.dataset.nav === id;
+      a.classList.toggle("active", on);
+      if (on) { a.setAttribute("aria-current", "true"); link = a; } else a.removeAttribute("aria-current");
+    });
+    // The Contact section is represented by the "Let's talk" button rather than a link.
+    document.querySelector(".nav-cta").classList.toggle("is-current", id === "contact");
+    // Phones have no nav links, so the brand shows which section you are in.
+    var lbl = id && $(id).querySelector(".label");
+    var where = lbl ? lbl.textContent.replace(/\s+/g, " ").trim().replace(/^(\d+) /, "$1 · ") : "";
+    if (navWhere.textContent !== where) {
+      navWhere.textContent = where;
+      navWhere.classList.remove("swap"); void navWhere.offsetWidth; navWhere.classList.add("swap");
+    }
+    $("brand-link").classList.toggle("has-where", !!where);
+    if (fab) onScroll();
+    if (!link) { indicator.style.opacity = 0; return; }
+    indicator.style.opacity = 1;
+    indicator.style.width = link.offsetWidth + "px";
+    indicator.style.transform = "translateX(" + link.offsetLeft + "px)";
+  }
+  if ("IntersectionObserver" in window) {
+    var navIo = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) setActive(en.target.id === "top" ? null : en.target.id); });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    ["top", "about", "work", "experience", "skills", "plan", "contact"].forEach(function (id) { navIo.observe($(id)); });
+  }
+  addEventListener("resize", function () { if (activeId) setActive(activeId); });
+
+  // Reveal sections and stagger their children
+  if ("IntersectionObserver" in window && !reduceMotion) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.classList.add("in");
+        en.target.querySelectorAll(".stagger").forEach(function (child, i) {
+          var d = Math.min(i * 60, 480);
+          child.style.transitionDelay = d + "ms";
+          child.classList.add("in");
+          // Drop the entrance delay afterwards so hover effects respond instantly.
+          setTimeout(function () { child.style.transitionDelay = ""; }, d + 800);
+        });
+        io.unobserve(en.target);
+      });
+    }, { threshold: 0.06, rootMargin: "0px 0px -8% 0px" });
+    document.querySelectorAll(".section").forEach(function (s) {
+      s.classList.add("reveal");
+      s.querySelectorAll(".principle, .case-tab, .career-seg, .skill, .hex, .pass, .quote, .phase").forEach(function (ch) { ch.classList.add("stagger"); });
+      io.observe(s);
+    });
+  }
+
+
+  // Primary buttons lean slightly toward the cursor (mouse only, not touch).
+  if (!reduceMotion && matchMedia("(pointer: fine)").matches) {
+    document.querySelectorAll(".btn.primary").forEach(function (b) {
+      b.addEventListener("pointermove", function (e) {
+        var r = b.getBoundingClientRect();
+        var x = (e.clientX - r.left - r.width / 2) / r.width, y = (e.clientY - r.top - r.height / 2) / r.height;
+        b.style.transform = "translate(" + (x * 8).toFixed(1) + "px," + (y * 6).toFixed(1) + "px)";
+      });
+      b.addEventListener("pointerleave", function () { b.style.transform = ""; });
+    });
+  }
+
+  // Cursor spotlight on cards (at most once per frame)
+  var spotEvt = null;
+  document.addEventListener("pointermove", function (e) {
+    if (spotEvt === null) requestAnimationFrame(function () {
+      var ev = spotEvt; spotEvt = null;
+      var card = ev.target.closest && ev.target.closest(".spot");
+      if (!card) return;
+      var r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", (ev.clientX - r.left) + "px");
+      card.style.setProperty("--my", (ev.clientY - r.top) + "px");
+    });
+    spotEvt = e;
+  }, { passive: true });
+
+  // Pause looping animations in sections that are off screen, so scrolling stays smooth.
+  if ("IntersectionObserver" in window) {
+    var idleIo = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { en.target.classList.toggle("idle", !en.isIntersecting); });
+    }, { rootMargin: "200px 0px" });
+    document.querySelectorAll(".hero, .section").forEach(function (s) { idleIo.observe(s); });
+  }
+
+  // Arriving at a section from a link (nav, footer, ⌘K, a shared #link): its heading lights up briefly.
+  var arriveTimer;
+  function arrive(id) {
+    var sec = $(id);
+    if (!sec || reduceMotion) return;
+    var head = sec.querySelector(".section-head, .contact-copy");
+    if (!head) return;
+    var fired = false;
+    function go() {
+      if (fired) return; fired = true;
+      document.querySelectorAll(".arrived").forEach(function (h) { h.classList.remove("arrived"); });
+      void head.offsetWidth;
+      head.classList.add("arrived");
+      clearTimeout(arriveTimer);
+      arriveTimer = setTimeout(function () { head.classList.remove("arrived"); }, 1800);
+    }
+    if ("onscrollend" in window) addEventListener("scrollend", go, { once: true });
+    setTimeout(go, 900);
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (a && a.getAttribute("href").length > 1) arrive(a.getAttribute("href").slice(1));
+  });
+  if (location.hash.length > 1) setTimeout(function () { arrive(location.hash.slice(1)); }, 300);
+
+  // Hero background drifts gently against the cursor (desktop mouse only; transform-only, once per frame).
+  if (!reduceMotion && matchMedia("(pointer: fine) and (min-width: 861px)").matches) {
+    var heroBg = document.querySelector(".hero-bg"), heroEl = document.querySelector(".hero"), px = null;
+    heroEl.addEventListener("pointermove", function (e) {
+      if (px === null) requestAnimationFrame(function () {
+        heroBg.style.setProperty("--px", px.x.toFixed(3));
+        heroBg.style.setProperty("--py", px.y.toFixed(3));
+        px = null;
+      });
+      px = { x: e.clientX / innerWidth - 0.5, y: e.clientY / innerHeight - 0.5 };
+    });
+    heroEl.addEventListener("pointerleave", function () { heroBg.style.setProperty("--px", 0); heroBg.style.setProperty("--py", 0); });
+  }
+
+
+  // ---------- Command palette ----------
+  var palette = $("palette"), input = $("palette-input"), listEl = $("palette-list");
+  $("kbd-hint").textContent = isMac ? "⌘K" : "Ctrl K";
+
+  function go(id) { return function () { $(id).scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); arrive(id); }; }
+  var COMMANDS = [
+    { group: "Navigate", label: "About", run: go("about") },
+    { group: "Navigate", label: "Selected work (case studies)", run: go("work") },
+    { group: "Navigate", label: "Tooling, sessions & competitions", run: function () { document.querySelector(".workshops").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" }); } },
+    { group: "Navigate", label: "Experience", run: go("experience") },
+    { group: "Navigate", label: "Skills & certifications", run: go("skills") },
+    { group: "Navigate", label: "Contact", run: go("contact") },
+  ].concat(openMode && c.first90 ? [{ group: "Navigate", label: "My first 90 days", run: go("plan") }] : []).concat([
+    { group: "Actions", label: "Copy email address", hint: c.email, run: function () { copy(c.email, "Email copied: " + c.email); } },
+    { group: "Actions", label: "Print this page as a CV", run: function () { setTimeout(function () { window.print(); }, 150); } },
+  ]);
+  if (c.cv) {
+    COMMANDS.splice(COMMANDS.length - 1, 0, { group: "Actions", label: "Download CV (PDF)", run: function () { var a = el("a", { href: c.cv }); a.download = ""; document.body.appendChild(a); a.click(); a.remove(); } });
+  }
+  c.links.forEach(function (l) {
+    COMMANDS.push({ group: "Actions", label: "Open " + l.label, hint: "↗", run: function () { window.open(l.url, "_blank", "noopener"); } });
+  });
+  Object.keys(THEMES).forEach(function (k) {
+    COMMANDS.push({ group: "Theme", label: "Theme: " + THEMES[k], theme: k, run: function () { switchTheme(k, $("theme-toggle"), true); } });
+  });
+
+  var filtered = COMMANDS, sel = 0;
+  function renderPalette() {
+    var q = input.value.trim().toLowerCase();
+    filtered = COMMANDS.filter(function (cmd) { return !q || (cmd.group + " " + cmd.label).toLowerCase().indexOf(q) > -1; });
+    sel = Math.min(sel, Math.max(filtered.length - 1, 0));
+    listEl.textContent = "";
+    if (!filtered.length) { listEl.appendChild(el("li", { cls: "palette-empty", text: "No results" })); input.removeAttribute("aria-activedescendant"); return; }
+    var lastGroup = null;
+    filtered.forEach(function (cmd, i) {
+      if (cmd.group !== lastGroup) { listEl.appendChild(el("li", { cls: "palette-group", text: cmd.group })); lastGroup = cmd.group; }
+      var current = cmd.theme && cmd.theme === root.getAttribute("data-theme");
+      var item = el("li", { cls: "palette-item" + (i === sel ? " sel" : "") }, [
+        el("span", { text: cmd.label }),
+        cmd.hint || current ? el("span", { cls: "palette-hint", text: current ? "current" : cmd.hint }) : null,
+      ]);
+      item.id = "cmd-" + i;
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(i === sel));
+      item.addEventListener("mousemove", function () { if (sel !== i) { sel = i; renderPalette(); } });
+      item.addEventListener("click", function () { runCmd(i); });
+      listEl.appendChild(item);
+    });
+    input.setAttribute("aria-activedescendant", "cmd-" + sel);
+    var s = $("cmd-" + sel);
+    if (s) s.scrollIntoView({ block: "nearest" });
+  }
+  function openPalette() {
+    if (palette.open) return;
+    setMenu(false);
+    input.value = ""; sel = 0; renderPalette();
+    palette.showModal();
+    input.focus();
+  }
+  function closePalette() { if (palette.open) palette.close(); }
+  function runCmd(i) { var cmd = filtered[i]; if (!cmd) return; closePalette(); cmd.run(); }
+
+  $("open-palette").addEventListener("click", openPalette);
+  input.addEventListener("input", function () { sel = 0; renderPalette(); });
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = (sel + 1) % Math.max(filtered.length, 1); renderPalette(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = (sel - 1 + filtered.length) % Math.max(filtered.length, 1); renderPalette(); }
+    else if (e.key === "Enter") { e.preventDefault(); runCmd(sel); }
+  });
+  palette.addEventListener("click", function (e) { if (e.target === palette) closePalette(); });
+
+  document.addEventListener("keydown", function (e) {
+    var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); palette.open ? closePalette() : openPalette(); }
+    else if (e.key === "/" && !typing && !palette.open) { e.preventDefault(); openPalette(); }
+    else if (e.key === "Escape" && !menu.hidden) { setMenu(false); menuBtn.focus(); }
+  });
+
+  // ---------- Visitor analytics (cookieless, GoatCounter) ----------
+  // Counts only real people: the page's JavaScript must run (most bots never do), the browser must not be
+  // automated, and the visitor must stay 5 s with the tab visible, scroll, or interact before anything is sent.
+  // Links like ?ref=adyen show up in GoatCounter as the referrer "adyen", so you can see which application was opened.
+  // Open the site once with ?me=1 to stop counting your own visits on that device (?me=0 undoes it).
+  var gc = { on: false, human: false, sent: {}, queue: [] };
+  function track(name, title) {
+    if (!gc.on) return;
+    if (!gc.human) { gc.queue.push([name, title]); return; }
+    if (gc.sent[name]) return;
+    gc.sent[name] = true;
+    var data = {
+      p: name ? name : location.pathname.replace(/\/?$/, "/"),
+      t: title || document.title,
+      e: name ? "true" : "false",
+      r: gc.ref || document.referrer,
+      q: location.search,
+      s: [screen.width, screen.height, window.devicePixelRatio || 1].join(","),
+      rnd: Math.random().toString(36).slice(2),
+    };
+    var url = "https://" + c.goatcounter + ".goatcounter.com/count?" + Object.keys(data).map(function (k) {
+      return k + "=" + encodeURIComponent(data[k]);
+    }).join("&");
+    if (gc.debug) { console.info("[analytics]", name || "pageview", data); return; }
+    if (!(navigator.sendBeacon && navigator.sendBeacon(url))) new Image().src = url;
+  }
+  (function () {
+    var params = new URLSearchParams(location.search);
+    try {
+      if (params.get("me") === "1") { localStorage.setItem("no-analytics", "1"); toast("Your visits are no longer counted on this device"); }
+      if (params.get("me") === "0") { localStorage.removeItem("no-analytics"); toast("Your visits are counted again on this device"); }
+      if (localStorage.getItem("no-analytics")) return;
+    } catch (e) {}
+    if (!c.goatcounter) return;
+    if (navigator.webdriver || /bot|crawl|spider|slurp|headless|lighthouse|preview|facebookexternalhit|embedly|whatsapp|telegram|discord|skype/i.test(navigator.userAgent)) return;
+    gc.debug = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    gc.ref = (params.get("ref") || params.get("utm_source") || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 40);
+    gc.on = true;
+
+    // Human gate: 5 s of visible time, a real scroll, or any interaction.
+    var visibleMs = 0, since = document.visibilityState === "visible" ? Date.now() : null, timer = null;
+    function becomeHuman() {
+      if (gc.human) return;
+      gc.human = true;
+      clearInterval(timer);
+      ["scroll", "pointerdown", "keydown"].forEach(function (ev) { removeEventListener(ev, onInteract, true); });
+      track("", "");
+      gc.queue.splice(0).forEach(function (a) { track(a[0], a[1]); });
+    }
+    function onInteract(e) { if (e.isTrusted && (e.type !== "scroll" || scrollY > 200)) becomeHuman(); }
+    ["scroll", "pointerdown", "keydown"].forEach(function (ev) { addEventListener(ev, onInteract, { capture: true, passive: true }); });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") since = Date.now();
+      else if (since) { visibleMs += Date.now() - since; since = null; }
+    });
+    timer = setInterval(function () {
+      if (visibleMs + (since ? Date.now() - since : 0) >= 5000) becomeHuman();
+    }, 1000);
+
+    // Which sections were actually read: occupying the middle of the screen for 2 s (works for tall sections too).
+    if ("IntersectionObserver" in window) {
+      var timers = {};
+      var readIo = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          var id = en.target.id;
+          if (en.isIntersecting) {
+            timers[id] = setTimeout(function () {
+              var h = en.target.querySelector("h2");
+              track("read-" + id, "Read: " + (h ? h.textContent : id));
+              readIo.unobserve(en.target);
+            }, 2000);
+          } else clearTimeout(timers[id]);
+        });
+      }, { rootMargin: "-40% 0px -40% 0px" });
+      ["about", "work", "experience", "skills", "plan", "contact"].forEach(function (id) { readIo.observe($(id)); });
+    }
+
+    // Time on page milestones (visible time only).
+    [[60000, "stayed-1-min", "Stayed 1+ min"], [180000, "stayed-3-min", "Stayed 3+ min"]].forEach(function (m) {
+      var check = setInterval(function () {
+        if (visibleMs + (since ? Date.now() - since : 0) >= m[0]) { track(m[1], m[2]); clearInterval(check); }
+      }, 5000);
+    });
+
+    // Contact intent: email, LinkedIn, GitHub clicks and copying the email address.
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (a) {
+        var href = a.getAttribute("href");
+        if (/^mailto:/.test(href)) track("click-email", "Clicked: email");
+        else if (/linkedin\.com/.test(href)) track("click-linkedin", "Clicked: LinkedIn");
+        else if (/github\.com/.test(href)) track("click-github", "Clicked: GitHub");
+      }
+      if (e.target.closest && e.target.closest("#copy-email")) track("copy-email", "Copied email address");
+    }, true);
+  })();
+})();

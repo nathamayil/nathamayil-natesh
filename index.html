@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nathamayil Natesh · Software Engineer · Java, AI &amp; Security</title>
+  <meta name="description" content="Nathamayil Natesh is a software engineer in Chennai, India: backend Java and Spring Boot payment platforms, AI agents and developer tooling, and security.">
+  <meta name="author" content="Nathamayil Natesh">
+  <meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0c0e" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+
+  <meta property="og:type" content="profile">
+  <meta property="og:title" content="Nathamayil Natesh · Software Engineer · Java, AI &amp; Security">
+  <meta property="og:description" content="Backend payment platforms in Java, AI agents and developer tooling, and security. Based in Chennai, India.">
+  <link rel="canonical" href="https://nathamayil.github.io/nathamayil-portfolio/">
+  <meta property="og:url" content="https://nathamayil.github.io/nathamayil-portfolio/">
+  <meta property="og:image" content="https://nathamayil.github.io/nathamayil-portfolio/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Nathamayil Natesh, Software Engineer, Chennai India">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2393e2c3'/%3E%3Cstop offset='1' stop-color='%230f7a55'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Ctext x='32' y='42' font-family='system-ui,sans-serif' font-size='28' font-weight='700' fill='%2304130d' text-anchor='middle'%3ENN%3C/text%3E%3C/svg%3E">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Nathamayil Natesh",
+    "jobTitle": "Software Engineer",
+    "worksFor": { "@type": "Organization", "name": "Bank of America GBS" },
+    "address": { "@type": "PostalAddress", "addressLocality": "Chennai", "addressCountry": "IN" },
+    "email": "mailto:nathamayilnatesh@gmail.com",
+    "url": "https://nathamayil.github.io/nathamayil-portfolio/",
+    "sameAs": ["https://in.linkedin.com/in/nathamayil-natesh", "https://github.com/nathamayil"],
+    "knowsAbout": ["Java", "Spring Boot", "Payment processing", "AI agents", "Retrieval-augmented generation", "Application security", "Prompt engineering"]
+  }
+  </script>
+
+  <link rel="stylesheet" href="styles.css?v=76">
+  <script>
+    // Set the theme before first paint: saved choice, else follow the OS.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem("theme"); } catch (e) {}
+      var legacy = { "minimal-light": "light", "minimal-dark": "dark", "terminal": "dark", "bold": "light" };
+      t = legacy[t] || t;
+      if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <header class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a href="#top" class="brand" id="brand-link"><span class="brand-avatar" aria-hidden="true"><img src="photo.jpg" alt="" width="28" height="28" decoding="async"></span><span class="brand-text"><span id="brand"></span><span class="nav-where" id="nav-where" aria-hidden="true"></span></span></a>
+      <nav aria-label="Primary" class="nav-links" id="primary-nav">
+        <a href="#about" data-nav="about">About</a>
+        <a href="#work" data-nav="work">Work</a>
+        <a href="#experience" data-nav="experience">Experience</a>
+        <a href="#skills" data-nav="skills">Skills</a>
+        <span class="nav-indicator" id="nav-indicator" aria-hidden="true"></span>
+      </nav>
+      <div class="nav-actions">
+        <button class="kbd-btn" id="open-palette" type="button" aria-label="Open command menu">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <kbd id="kbd-hint">⌘K</kbd>
+        </button>
+        <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode">
+          <svg class="i-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+          <svg class="i-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z"/></svg>
+        </button>
+        <a class="nav-cta" href="#contact">Let’s talk<span aria-hidden="true">→</span></a>
+        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+          <span class="burger" aria-hidden="true"><span></span><span></span></span>
+        </button>
+      </div>
+    </div>
+    <div class="mobile-menu" id="mobile-menu" hidden>
+      <nav aria-label="Mobile" class="wrap">
+        <a href="#about">About</a>
+        <a href="#work">Work</a>
+        <a href="#experience">Experience</a>
+        <a href="#skills">Skills</a>
+        <a href="#contact">Contact</a>
+        <a download class="mobile-cv" id="mobile-cv" hidden>Download CV ↓</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" id="top">
+      <div class="hero-bg" aria-hidden="true">
+        <div class="blob blob-a"></div>
+        <div class="blob blob-b"></div>
+        <div class="aurora"></div>
+        <div class="horizon"></div>
+        <div class="grain"></div>
+      </div>
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="status"><span class="pulse" aria-hidden="true"></span><span id="hero-availability"></span></p>
+          <div class="hero-id">
+            <div class="avatar-ring"><div class="avatar" id="hero-avatar"></div></div>
+            <div>
+              <h1 id="hero-name"></h1>
+              <p class="eyebrow" id="hero-eyebrow"></p>
+            </div>
+          </div>
+          <p class="hero-tagline" id="hero-tagline"></p>
+          <div class="hero-cta">
+            <a class="btn primary" href="#work">See my work</a>
+            <a class="btn" id="hero-cv" download hidden>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+              Download CV
+            </a>
+          </div>
+          <div class="hero-meta">
+            <div class="hero-socials" id="hero-socials"></div>
+            <span class="clock" id="clock"></span>
+          </div>
+        </div>
+        <aside class="hero-card spot" id="hero-card" aria-label="Current role"></aside>
+      </div>
+    </section>
+
+    <!-- About -->
+    <section class="wrap section" id="about">
+      <header class="section-head">
+        <p class="label"><span class="idx">01</span> About</p>
+        <h2>Reliable payments, practical AI, security built in.</h2>
+      </header>
+      <div class="about-grid">
+        <div class="about-main">
+          <div class="about-bar">
+            <span class="about-kicker">Introduction</span>
+          </div>
+          <p class="lede" id="about-lede" lang="en"></p>
+        </div>
+        <aside class="glance spot" aria-labelledby="glance-title">
+          <div class="glance-head">
+            <h3 class="glance-title" id="glance-title">At a glance</h3>
+            <span class="glance-open"><i aria-hidden="true"></i>Open to roles</span>
+          </div>
+          <dl id="facts" class="glance-list"></dl>
+        </aside>
+      </div>
+      <div class="principles-wrap">
+        <h3 class="sub-label">How I work</h3>
+        <div id="principles" class="principles"></div>
+      </div>
+    </section>
+
+    <!-- Selected work -->
+    <section class="wrap section" id="work">
+      <header class="section-head section-head-split">
+        <div>
+          <p class="label"><span class="idx">02</span> Selected work</p>
+          <h2>Things I’ve built, without the internal details.</h2>
+        </div>
+        <p class="nda-note">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          Work at the bank is confidential, so these are anonymised. Happy to go deeper in an interview.
+        </p>
+      </header>
+      <div class="showcase" id="showcase"></div>
+
+      <div class="workshops">
+        <div class="workshops-head">
+          <h3 class="sub-label">Tooling, sessions &amp; competitions</h3>
+          <p class="workshops-lead">Raising the bar beyond my own team.</p>
+        </div>
+        <ul id="workshop-list" class="passes"></ul>
+      </div>
+
+      <div class="quotes" id="quotes" hidden>
+        <h3 class="sub-label">What colleagues say</h3>
+        <div class="quote-list" id="quote-list"></div>
+      </div>
+    </section>
+
+    <!-- Experience -->
+    <section class="wrap section" id="experience">
+      <header class="section-head">
+        <p class="label"><span class="idx">03</span> Experience</p>
+        <h2>From internships to payment platforms at scale.</h2>
+      </header>
+      <div class="career" id="career">
+        <div class="career-bar" role="tablist" aria-label="Roles, oldest to newest" id="career-bar"></div>
+        <div class="career-axis" id="career-axis" aria-hidden="true"></div>
+        <div class="career-panels" id="career-panels"></div>
+      </div>
+    </section>
+
+    <!-- Skills -->
+    <section class="wrap section" id="skills">
+      <header class="section-head">
+        <p class="label"><span class="idx">04</span> Skills</p>
+        <h2>What I build with.</h2>
+      </header>
+      <div class="skills-list" id="skills-list"></div>
+      <div class="certs-wall" id="certs">
+        <div class="certs-head">
+          <h3 class="sub-label">Certifications</h3>
+          <ul class="cert-legend" id="cert-legend"></ul>
+        </div>
+        <ul class="hive" id="hive" aria-label="Certifications"></ul>
+        <p class="hive-caption" id="hive-caption" aria-hidden="true"></p>
+        <div class="learning" id="learning" hidden>
+          <h4 class="learning-title">Recent learning</h4>
+          <ul class="learning-list" id="learning-list"></ul>
+        </div>
+        <div class="learning" id="publications" hidden>
+          <h4 class="learning-title">Publication</h4>
+          <ul class="learning-list" id="publications-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact -->
+    <!-- First 90 days -->
+    <section class="wrap section" id="plan">
+      <header class="section-head">
+        <p class="label"><span class="idx">05</span> First 90 days</p>
+        <h2 id="plan-title"></h2>
+        <p class="section-intro" id="plan-intro"></p>
+      </header>
+      <ol class="plan" id="plan-phases"></ol>
+    </section>
+
+    <section class="wrap section contact" id="contact">
+      <div class="contact-bg" aria-hidden="true"></div>
+      <div class="contact-grid">
+        <div class="contact-copy">
+          <p class="label"><span class="idx">06</span> Contact</p>
+          <h2 class="contact-title">Let’s build something <em>reliable</em>.</h2>
+          <p class="contact-status"><span class="pulse" aria-hidden="true"></span><span id="contact-availability"></span></p>
+          <div class="contact-email-row">
+            <a class="contact-email" id="contact-email"></a>
+            <button class="copy-btn" id="copy-email" type="button" aria-label="Copy email address">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            </button>
+          </div>
+          <ul class="channels" id="contact-channels"></ul>
+          <p class="contact-local" id="contact-local"></p>
+        </div>
+
+        <form id="contact-form" class="contact-form" novalidate>
+          <div class="cf-head">
+            <h3>Send a message</h3>
+            <p>Goes straight to my inbox.</p>
+          </div>
+          <fieldset class="cf-topics">
+            <legend>What’s it about?</legend>
+            <label><input type="radio" name="topic" value="Job opportunity" checked><span>Job opportunity</span></label>
+            <label><input type="radio" name="topic" value="Speaking / workshop"><span>Speaking / workshop</span></label>
+            <label><input type="radio" name="topic" value="Something else"><span>Something else</span></label>
+          </fieldset>
+          <div class="cf-row">
+            <div class="cf-field">
+              <input id="f-name" name="name" required autocomplete="name" placeholder=" ">
+              <label for="f-name">Your name</label>
+            </div>
+            <div class="cf-field">
+              <input id="f-email" name="email" type="email" required autocomplete="email" placeholder=" ">
+              <label for="f-email">Your email</label>
+            </div>
+          </div>
+          <div class="cf-field">
+            <textarea id="f-msg" name="message" rows="4" required placeholder=" " aria-describedby="cf-hint"></textarea>
+            <label for="f-msg">Message</label>
+          </div>
+          <p class="cf-hint" id="cf-hint" aria-live="polite"></p>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="btn primary cf-send" type="submit">Send message <span aria-hidden="true">→</span></button>
+          <p class="cf-note" id="compose-out" role="status" aria-live="polite">Opens your email app with the message ready. Nothing is stored on this site.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-bottom">
+      <span><span id="footer-text"></span><span class="footer-sep" aria-hidden="true"> · </span><time id="footer-updated"></time></span>
+      <a href="#top" class="to-top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <!-- Command palette -->
+  <dialog class="palette" id="palette" aria-label="Command menu">
+    <div class="palette-inner">
+      <div class="palette-search">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="palette-input" type="text" placeholder="Type a command or search…" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list">
+        <kbd>esc</kbd>
+      </div>
+      <ul id="palette-list" class="palette-list" role="listbox"></ul>
+      <div class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> select</span></div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <a class="top-fab" id="top-fab" href="#top" aria-label="Back to top" tabindex="-1">
+    <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="fab-track" cx="22" cy="22" r="20"/><circle class="fab-ring" id="top-ring" cx="22" cy="22" r="20" pathLength="1"/></svg>
+    <svg class="fab-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>
+  </a>
+
+  <noscript>
+    <div class="wrap noscript">
+      <h1>Nathamayil Natesh</h1>
+      <p>Software Engineer · Java · AI &amp; Security · Chennai, India</p>
+      <p><a href="mailto:nathamayilnatesh@gmail.com">nathamayilnatesh@gmail.com</a> · <a href="https://in.linkedin.com/in/nathamayil-natesh">LinkedIn</a> · <a href="https://github.com/nathamayil">GitHub</a></p>
+    </div>
+  </noscript>
+
+  <script src="content.js?v=76"></script>
+  <script src="app.js?v=76"></script>
+</body>
+</html>
